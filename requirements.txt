@@ -1,0 +1,11 @@
+numpy
+pandas
+pyarrow
+matplotlib
+scikit-learn
+langdetect
+pydicom
+opencv-python
+torch>=2.0
+torchvision>=0.15
+tqdm

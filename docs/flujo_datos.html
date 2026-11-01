@@ -1,0 +1,397 @@
+<title>Rodilla RSNA · flujo de datos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: columna central; cada etapa = riel izquierdo (paso + conteos) + tarjeta con ENTRA / SE CREA / SE QUEDA */
+:root{
+  --bg:#eef2f5; --panel:#ffffff; --fg:#14212c; --muted:#5a6977; --line:#cfd8e0;
+  --accent:#0d6a86; --accent-soft:#d7ecf2;
+  --new:#24784a; --new-soft:#dcf0e3;
+  --drop:#b2432d; --drop-soft:#f7e0da;
+  --target:#7346b0; --target-soft:#ebe1f7;
+  --hl:#f2b705;
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e161d; --panel:#16212b; --fg:#e3eaf0; --muted:#97a6b3; --line:#2c3b48;
+  --accent:#5cc0dc; --accent-soft:#16384a;
+  --new:#6fd29a; --new-soft:#173a29;
+  --drop:#f08a72; --drop-soft:#43231c;
+  --target:#bf9cf0; --target-soft:#2f2346;
+  --hl:#f5c84a; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0e161d; --panel:#16212b; --fg:#e3eaf0; --muted:#97a6b3; --line:#2c3b48;
+  --accent:#5cc0dc; --accent-soft:#16384a;
+  --new:#6fd29a; --new-soft:#173a29;
+  --drop:#f08a72; --drop-soft:#43231c;
+  --target:#bf9cf0; --target-soft:#2f2346;
+  --hl:#f5c84a; color-scheme:dark;}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55;margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:32px 64px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0}
+h1{font-size:clamp(28px,5vw,44px);font-weight:800;letter-spacing:-.02em;line-height:1.05}
+h2{font-size:22px;font-weight:700;letter-spacing:-.01em}
+h3{font-size:17px;font-weight:700}
+p{margin:0}
+.lede{color:var(--muted);max-width:68ch;margin-top:12px}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+
+/* embudo */
+.funnel{margin-top:28px;display:grid;gap:10px}
+.frow{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:center}
+.frow .lab{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.bars{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-width:0}
+.bar{background:var(--accent-soft);color:var(--fg);border-radius:4px;padding:6px 10px;font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
+.bar b{font-family:var(--f-display);font-size:16px;margin-right:4px}
+.bar.t{background:var(--target-soft)}
+.arrow{color:var(--muted);font-family:var(--f-mono)}
+
+/* leyenda */
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:24px;padding:12px 14px;border:1px dashed var(--line);border-radius:8px;font-size:13px;color:var(--muted);align-items:center}
+.legend span.c{cursor:default}
+
+/* chips de columnas */
+.c{display:inline-block;font-family:var(--f-mono);font-size:12.5px;padding:2px 7px;border-radius:4px;border:1px solid var(--line);background:var(--panel);color:var(--fg);margin:2px 3px 2px 0;cursor:pointer;transition:box-shadow .15s}
+.c.new{background:var(--new-soft);border-color:transparent;color:var(--new)}
+.c.drop{background:var(--drop-soft);border-color:transparent;color:var(--drop);text-decoration:line-through;text-decoration-thickness:1px}
+.c.tg{background:var(--target-soft);border-color:transparent;color:var(--target);font-weight:500}
+.c.on{box-shadow:0 0 0 2px var(--hl)}
+.c:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* fases */
+.phase{margin-top:48px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;border-bottom:2px solid var(--fg);padding-bottom:8px}
+.phase .where{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+
+/* etapas */
+.stage{display:grid;grid-template-columns:150px minmax(0,1fr);gap:18px;margin-top:22px;position:relative}
+.rail{border-left:3px solid var(--accent);padding-left:12px;display:flex;flex-direction:column;gap:6px}
+.rail .step{font-family:var(--f-mono);font-size:12px;color:var(--accent)}
+.rail .count{font-family:var(--f-display);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.rail .count small{display:block;font-family:var(--f-body);font-size:12px;font-weight:400;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;min-width:0}
+.card > p.what{margin-top:6px;color:var(--muted);max-width:75ch}
+.io{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 18px;margin-top:14px}
+.io > div{min-width:0}
+.io h4{margin:0 0 4px;font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:500}
+.io .in h4{color:var(--muted)}
+.io .mk h4{color:var(--new)}
+.io .dr h4{color:var(--drop)}
+.io .ta h4{color:var(--target)}
+.io ul{margin:4px 0 0;padding-left:18px;font-size:13.5px}
+.io li{margin:2px 0}
+.file{display:inline-block;margin-top:12px;font-family:var(--f-mono);font-size:12.5px;background:var(--accent-soft);color:var(--fg);padding:4px 9px;border-radius:4px}
+.file b{color:var(--accent);font-weight:500}
+.note{margin-top:12px;font-size:13.5px;border-left:3px solid var(--hl);padding:4px 0 4px 10px;max-width:80ch}
+.down{text-align:center;color:var(--muted);font-family:var(--f-mono);font-size:18px;margin:6px 0 -10px 150px}
+
+/* tira de cortes */
+.slices{margin-top:14px;overflow-x:auto}
+.strip{display:grid;grid-template-columns:repeat(15,minmax(34px,1fr));gap:3px;min-width:560px}
+.sl{border-radius:3px;background:linear-gradient(180deg,#3a4a57,#1b252e);height:54px;position:relative;display:flex;align-items:flex-end;justify-content:center;font-family:var(--f-mono);font-size:10px;color:#cfd8e0;padding-bottom:3px}
+.sl.rgb{outline:2px solid var(--target);outline-offset:1px}
+.sl.r{background:linear-gradient(180deg,#9b3b3b,#3b1515)}
+.sl.g{background:linear-gradient(180deg,#3b8a4f,#143320)}
+.sl.b{background:linear-gradient(180deg,#3b5f9b,#141f3b)}
+.stripcap{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px;min-width:560px}
+
+/* tabla final */
+.tbl{overflow-x:auto;margin-top:12px}
+table{border-collapse:collapse;font-size:13.5px;min-width:520px;width:100%}
+th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+th{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+
+.summary{margin-top:56px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.summary .card h3{margin-bottom:8px}
+.summary ul{margin:0;padding-left:18px;font-size:14px}
+.summary li{margin:3px 0}
+footer{margin-top:40px;font-size:12.5px;color:var(--muted);max-width:80ch}
+
+@media (max-width:640px){
+  .stage{grid-template-columns:1fr;gap:10px}
+  .rail{flex-direction:row;flex-wrap:wrap;gap:4px 16px;align-items:baseline}
+  .down{margin-left:0}
+  .frow{grid-template-columns:1fr;gap:4px}
+}
+@media (prefers-reduced-motion:reduce){.c{transition:none}}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">RSNA Knee · CNN con supervisión débil · UNI FIIS 2026-II</div>
+  <h1>De dos CSV a 12 probabilidades: qué columnas viajan y cuáles se quedan</h1>
+  <p class="lede">El recorrido completo del proyecto, desde los archivos de la competencia hasta la predicción del modelo final (ResNet-50 con ajuste fino). En cada etapa se ve qué columnas <b>entran</b>, cuáles <b>se crean</b>, cuáles <b>se quedan en el camino</b> y qué es el <b>target</b>. Haz clic en cualquier columna para resaltarla en todas las etapas.</p>
+
+  <div class="funnel" aria-label="Embudo de filas">
+    <div class="frow"><div class="lab">ESTUDIOS</div>
+      <div class="bars"><span class="bar"><b>4,407</b>train.csv</span><span class="arrow">→</span><span class="bar"><b>4,150</b>con Sagital FS</span><span class="arrow">→</span><span class="bar"><b>656</b>seleccionados</span><span class="arrow">→</span><span class="bar t"><b>480</b>train</span><span class="bar t"><b>120</b>val</span><span class="bar t"><b>56</b>test gold</span></div></div>
+    <div class="frow"><div class="lab">SERIES</div>
+      <div class="bars"><span class="bar"><b>24,371</b>train_series.csv</span><span class="arrow">→</span><span class="bar"><b>750</b>Sagital FS candidatas</span><span class="arrow">→</span><span class="bar"><b>656</b>1 por estudio</span><span class="arrow">→</span><span class="bar"><b>656</b>.npy [15,256,256]</span></div></div>
+    <div class="frow"><div class="lab">TEXTO → ETIQUETA</div>
+      <div class="bars"><span class="bar"><b>1</b>reporte libre</span><span class="arrow">→</span><span class="bar t"><b>12</b>etiquetas 1 / 0 / −1</span><span class="arrow">→</span><span class="bar"><b>0</b>texto llega a la CNN</span></div></div>
+  </div>
+
+  <div class="legend">
+    <span><span class="c">columna</span> pasa igual</span>
+    <span><span class="c new">columna</span> se crea aquí</span>
+    <span><span class="c drop">columna</span> se queda en el camino</span>
+    <span><span class="c tg">target</span> lo que el modelo aprende a predecir</span>
+  </div>
+
+  <!-- ================= FASE 1 ================= -->
+  <div class="phase"><h2>Fase 1 · Texto y tablas</h2><span class="where">local / Colab · rodilla.ipynb + extractor.py · sin descargar los DICOM</span></div>
+
+  <div class="stage">
+    <div class="rail"><span class="step">FUENTES</span><span class="count">4,407<small>estudios</small></span><span class="count">24,371<small>series</small></span></div>
+    <div class="card">
+      <h3>Los archivos de la competencia</h3>
+      <p class="what">Dos CSV (unos MB) y una carpeta de imágenes DICOM de ~570 GB que nunca se descarga: solo se lee dentro de Kaggle.</p>
+      <div class="io">
+        <div class="in"><h4>train.csv · 4,407 × 14</h4>
+          <span class="c" data-col="uid">StudyInstanceUID</span><span class="c" data-col="report">Report</span><span class="c" data-col="lab12">12 etiquetas (ACL … Fracture)</span>
+          <ul><li>Etiquetas con valores 1 / 0 / <b>NaN</b>. NaN = desconocido, nunca 0.</li><li>Solo <b>58</b> estudios tienen las 12 (gold); los otros 4,349, ninguna.</li></ul></div>
+        <div class="in"><h4>train_series.csv · 24,371 × 5</h4>
+          <span class="c" data-col="uid">StudyInstanceUID</span><span class="c" data-col="suid">SeriesInstanceUID</span><span class="c" data-col="fs">Fluid_Sensitive</span><span class="c" data-col="fatsup">Fat_Suppression</span><span class="c" data-col="plane">Anatomical_Plane</span>
+          <ul><li>3 a 14 series por estudio (moda 5).</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="down">↓</div>
+  <div class="stage">
+    <div class="rail"><span class="step">PASOS 1–4</span><span class="count">4,407<small>sin cambios</small></span></div>
+    <div class="card">
+      <h3>Exploración</h3>
+      <p class="what">No se crea nada todavía; se aprende cómo son los datos. Tres descubrimientos cambian lo que viene después.</p>
+      <div class="io">
+        <div class="mk"><h4>Lo que se descubre</h4><ul>
+          <li><b>9 idiomas</b> en los reportes (en, es, tr, hr, el, de, bg, nl, fr).</li>
+          <li>La sección de <b>conclusión</b> existe en el 61 % de los reportes.</li>
+          <li>Cobertura de planos: Axial FS 100 %, Coronal FS 96 %, <b>Sagital FS 94 %</b>.</li></ul></div>
+        <div class="dr"><h4>Lo que se descarta</h4>
+          <span class="c drop" data-col="fatsup">Fat_Suppression</span>
+          <ul><li>Es <b>idéntica</b> a <code>Fluid_Sensitive</code> en las 24,371 series: en la práctica es una sola variable.</li></ul></div>
+      </div>
+      <p class="note"><b>Decisión:</b> la secuencia de entrada será <b>Sagital FS</b>. Los centros alemanes casi no la adquieren, así que se excluyen (sesgo de protocolo, declarado en el informe).</p>
+    </div>
+  </div>
+
+  <div class="down">↓</div>
+  <div class="stage">
+    <div class="rail"><span class="step">PASOS 5–6</span><span class="count">4,407<small>estudios limpios</small></span><span class="count">24,371<small>series limpias</small></span></div>
+    <div class="card">
+      <h3>Limpieza y columnas nuevas</h3>
+      <p class="what">Se normaliza el texto (NFKC: µ→μ, ∆→Δ, restos de RTF en holandés) y se añaden columnas de contexto. Antes, se leen 100 reportes a mano (no gold) para diseñar las reglas.</p>
+      <div class="io">
+        <div class="in"><h4>Entra</h4><span class="c" data-col="uid">StudyInstanceUID</span><span class="c" data-col="report">Report</span><span class="c" data-col="lab12">12 etiquetas</span><span class="c" data-col="fs">Fluid_Sensitive</span><span class="c" data-col="plane">Anatomical_Plane</span></div>
+        <div class="mk"><h4>Se crea · estudios</h4>
+          <span class="c new" data-col="rnorm">Report_norm</span><span class="c new" data-col="idioma">idioma</span><span class="c new" data-col="gold">es_gold</span><span class="c new" data-col="eleg">elegible</span><span class="c new" data-col="npal">n_palabras</span><span class="c new" data-col="concl">conclusion</span><span class="c new" data-col="textext">texto_extractor</span></div>
+        <div class="mk"><h4>Se crea · series</h4>
+          <span class="c new" data-col="combo">combo plano + secuencia</span><span class="c new" data-col="sagfs">es_sagital_fs</span></div>
+      </div>
+      <span class="file"><b>→</b> data/clean/train_clean.parquet (4,407 × 27) · series_clean.parquet (24,371 × 9)</span>
+    </div>
+  </div>
+
+  <div class="down">↓</div>
+  <div class="stage">
+    <div class="rail"><span class="step">PASO 7</span><span class="count">4,407<small>con 12 etiquetas débiles</small></span></div>
+    <div class="card">
+      <h3>Extractor de etiquetas débiles (reglas propias, 9 idiomas)</h3>
+      <p class="what">Cada reporte se pasa a minúsculas y sin tildes, se corta en oraciones, se ignoran los antecedentes y cada uno de los 12 clasificadores decide por oración: rotura, negación ("sin rotura"), duda ("no se descarta") o grado ("derrame mínimo"). Por estudio manda el 1, luego el −1; lo no mencionado vale 0.</p>
+      <div class="io">
+        <div class="in"><h4>Entra</h4><span class="c" data-col="rnorm">Report_norm</span>
+          <ul><li>Siempre el <b>reporte completo</b> (regla D5): la conclusión omitía hallazgos en el 20 % de los casos.</li></ul></div>
+        <div class="ta"><h4>Sale · el target de entrenamiento</h4>
+          <span class="c tg" data-col="weak">12 etiquetas débiles</span>
+          <ul><li><b>1</b> = positivo · <b>0</b> = negativo · <b>−1</b> = incierto.</li><li>Ya no hay celdas vacías: antes 52,188 de 52,884.</li></ul></div>
+        <div class="dr"><h4>Queda sin usar</h4><span class="c drop" data-col="concl">conclusion</span><span class="c drop" data-col="textext">texto_extractor</span>
+          <ul><li>Útiles para explorar, pero la D5 eligió el reporte completo.</li></ul></div>
+      </div>
+      <span class="file"><b>→</b> data/clean/etiquetas_debiles.parquet (4,407 × 16)</span>
+    </div>
+  </div>
+
+  <div class="down">↓</div>
+  <div class="stage">
+    <div class="rail"><span class="step">PASO 8</span><span class="count">56<small>gold elegibles</small></span></div>
+    <div class="card">
+      <h3>Validación del extractor contra el gold</h3>
+      <p class="what">Se compara la etiqueta débil con la gold en los 56 estudios gold elegibles. No cambia ninguna columna: produce métricas.</p>
+      <div class="io">
+        <div class="in"><h4>Compara</h4><span class="c tg" data-col="weak">12 etiquetas débiles</span> vs <span class="c" data-col="lab12">12 etiquetas</span> (gold)</div>
+        <div class="mk"><h4>Resultado</h4><ul>
+          <li>Acuerdo macro <b>0.83</b> (κ 0.56) → ruido ≈ 17 %.</li>
+          <li>Muy bien: ACL 0.93–0.96, Baker's 0.91, MCL 0.91.</li>
+          <li>Mal: Synovitis 0.68, Effusion 0.71 (el gold no siempre sale del texto).</li></ul></div>
+      </div>
+      <p class="note">Los gold <b>nunca</b> se usaron para entrenar ni para ajustar las reglas. Solo se corrigieron 2 errores de implementación, que están declarados.</p>
+    </div>
+  </div>
+
+  <div class="down">↓</div>
+  <div class="stage">
+    <div class="rail"><span class="step">PASO 9</span><span class="count">656<small>estudios</small></span><span class="count">750<small>series candidatas</small></span></div>
+    <div class="card">
+      <h3>Selección y split: aquí el texto se queda atrás</h3>
+      <p class="what">De los elegibles no gold se eligen 600, con una cuota de al menos 60 positivos por hallazgo (empezando por el más raro) y relleno estratificado por idioma (seed 42). Se reparten por <b>estudio</b> en train/val con estratificación multietiqueta. Los 56 gold son el test.</p>
+      <div class="io">
+        <div class="in"><h4>Entra · tabla maestra (4,407 × 33)</h4>
+          <span class="c" data-col="uid">StudyInstanceUID</span><span class="c" data-col="idioma">idioma</span><span class="c" data-col="gold">es_gold</span><span class="c" data-col="eleg">elegible</span><span class="c new" data-col="nser">n_series_sagfs</span><span class="c tg" data-col="weak">12 etiquetas débiles</span><span class="c new" data-col="goldcols">12 &lt;etq&gt;_gold</span><span class="c new" data-col="destino">destino</span></div>
+        <div class="mk"><h4>Sale · dataset_cnn.csv (656 × 17)</h4>
+          <span class="c" data-col="uid">StudyInstanceUID</span><span class="c new" data-col="split">split</span><span class="c new" data-col="fuente">fuente_etiquetas</span><span class="c" data-col="idioma">idioma</span><span class="c" data-col="nser">n_series_sagfs</span><span class="c tg" data-col="target">12 etiquetas (target)</span>
+          <ul><li>train y val: etiquetas <b>débiles</b> 1/0/−1.</li><li>test: etiquetas <b>gold</b> 1/0.</li></ul></div>
+        <div class="dr"><h4>Se queda en el camino</h4>
+          <span class="c drop" data-col="report">Report</span><span class="c drop" data-col="rnorm">Report_norm</span><span class="c drop" data-col="npal">n_palabras</span><span class="c drop" data-col="gold">es_gold</span>
+          <ul><li><b>257</b> estudios no elegibles (95 % alemanes, sin Sagital FS).</li><li><b>3,494</b> elegibles no usados (de reserva).</li><li><b>2</b> gold alemanes → se evalúa sobre 56, no 58.</li></ul></div>
+      </div>
+      <p class="note">Desde aquí <b>la CNN no ve ni una palabra del reporte</b>. El texto solo sirvió para fabricar el target.</p>
+      <span class="file"><b>→</b> data/cnn/dataset_cnn.csv (656 × 17) · series_cnn.csv (750 × 3) · train_completo.csv (4,407 × 33)</span>
+    </div>
+  </div>
+
+  <!-- ================= FASE 2 ================= -->
+  <div class="phase"><h2>Fase 2 · Imágenes DICOM</h2><span class="where">Kaggle CPU · 02_preprocesamiento_dicom → 03_cortes_npy</span></div>
+
+  <div class="stage">
+    <div class="rail"><span class="step">PASO 10.1</span><span class="count">750 → 656<small>series</small></span></div>
+    <div class="card">
+      <h3>Leer cabeceras DICOM y elegir una serie por estudio</h3>
+      <p class="what">93 estudios tienen varias Sagital FS; 87 de ellos son pares <b>DP + T2</b> con la misma geometría. Regla de desempate: <b>DP &gt; más cortes &gt; menor SeriesNumber</b>.</p>
+      <div class="io">
+        <div class="in"><h4>Entra</h4><span class="c" data-col="uid">StudyInstanceUID</span><span class="c" data-col="suid">SeriesInstanceUID</span><span class="c" data-col="split">split</span> + cabeceras DICOM</div>
+        <div class="mk"><h4>Se crea</h4><span class="c new" data-col="contraste">contraste (DP/T2)</span><span class="c new" data-col="te">TE</span><span class="c new" data-col="geo">grosor · píxel · filas · cols</span>
+          <ul><li>Contraste por la descripción; si viene anonimizada, por el TE (&lt; 45 ms = DP).</li></ul></div>
+        <div class="dr"><h4>Se queda en el camino</h4><ul><li><b>94</b> series perdedoras del desempate (casi todas T2).</li><li>Resultado: 571 DP (87 %) / 85 T2.</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="down">↓</div>
+  <div class="stage">
+    <div class="rail"><span class="step">PASO 10.2</span><span class="count">656<small>con lado R/L</small></span></div>
+    <div class="card">
+      <h3>Lateralidad: ¿rodilla derecha o izquierda?</h3>
+      <p class="what">Hace falta para que el canal 0 sea siempre el lado <b>medial</b>: en una rodilla derecha el orden de los cortes se invierte. El campo DICOM <code>Laterality</code> falta en el 48 % y está mal en ~1.2 %.</p>
+      <div class="io">
+        <div class="mk"><h4>Se crea</h4><span class="c new" data-col="lado">lado_final</span><span class="c new" data-col="ladofuente">fuente del lado</span>
+          <ul><li>Posición x de la rodilla (597), revisión visual ciega del peroné (35), DICOM (22), x dudosa (2).</li></ul></div>
+      </div>
+      <span class="file"><b>→</b> series_elegidas.csv (656 filas)</span>
+    </div>
+  </div>
+
+  <div class="down">↓</div>
+  <div class="stage">
+    <div class="rail"><span class="step">PASO 10.3–10.5</span><span class="count">656<small>tensores .npy</small></span><span class="count">1.29 GB<small>de ~570 GB</small></span></div>
+    <div class="card">
+      <h3>Del volumen DICOM a un tensor [15, 256, 256]</h3>
+      <p class="what">Cada serie se orienta (anterior a la izquierda, superior arriba), se ordena por posición física y se muestrea en <b>15 posiciones en milímetros</b> respecto al centro, de −28 a +28 mm cada 4 mm. Luego se normaliza la intensidad (percentiles 0.5–99.5 → [0, 1]) y se lleva a 256×256 en float16.</p>
+      <div class="slices" aria-label="15 cortes del tensor">
+        <div class="strip">
+          <div class="sl">−28</div><div class="sl">−24</div><div class="sl r rgb">−20</div><div class="sl">−16</div><div class="sl">−12</div><div class="sl">−8</div><div class="sl">−4</div><div class="sl g rgb">0</div><div class="sl">+4</div><div class="sl">+8</div><div class="sl">+12</div><div class="sl">+16</div><div class="sl b rgb">+20</div><div class="sl">+24</div><div class="sl">+28</div>
+        </div>
+        <div class="stripcap"><span>canal 0 = medial</span><span>mm respecto al centro del volumen</span><span>canal 14 = lateral</span></div>
+      </div>
+      <div class="io">
+        <div class="mk"><h4>Se crea</h4><span class="c new" data-col="npy">npy/&lt;UID&gt;.npy [15,256,256]</span><span class="c new" data-col="fab">fabricante</span><span class="c new" data-col="archivo">archivo</span><span class="c new" data-col="qc">QC</span></div>
+        <div class="dr"><h4>Se queda en el camino</h4><ul><li>Todo lo que está a más de ±28 mm del centro (bordes de la rodilla).</li><li>La resolución original (192² a 1024²).</li><li>Las demás series y planos del estudio.</li></ul></div>
+      </div>
+      <p class="note">El índice <code>indice_npy.csv</code> une el tensor con su fila: <span class="c" data-col="split">split</span><span class="c" data-col="contraste">contraste</span><span class="c" data-col="fab">fabricante</span><span class="c" data-col="lado">lado</span><span class="c" data-col="idioma">idioma</span><span class="c" data-col="fuente">fuente_etiquetas</span><span class="c tg" data-col="target">12 etiquetas (target)</span><span class="c" data-col="archivo">archivo</span>.</p>
+    </div>
+  </div>
+
+  <!-- ================= FASE 3 ================= -->
+  <div class="phase"><h2>Fase 3 · Modelo</h2><span class="where">Kaggle GPU T4 · 04_entrenamiento</span></div>
+
+  <div class="stage">
+    <div class="rail"><span class="step">PASO 11</span><span class="count">X, y, máscara<small>por estudio</small></span></div>
+    <div class="card">
+      <h3>Dataset PyTorch: qué recibe la red</h3>
+      <p class="what">De cada fila del índice salen tres cosas. Todo lo demás es metadato que la red no ve y que solo vuelve al final, para medir sesgos.</p>
+      <div class="io">
+        <div class="in"><h4>X · la imagen</h4><ul>
+          <li><b>VGG-11 desde cero:</b> los 15 cortes como 15 canales.</li>
+          <li><b>ResNet-50 (final):</b> solo los cortes −20, 0 y +20 mm como R, G, B, normalizados con las estadísticas de ImageNet.</li>
+          <li>Train: <code>RandomAffine</code> (±10°, ±8 %, escala 0.9–1.1), sin volteo para no romper medial/lateral.</li></ul></div>
+        <div class="ta"><h4>y · el target</h4><span class="c tg" data-col="target">12 etiquetas (target)</span>
+          <ul><li>Un vector de 12 valores: 1, 0 o −1.</li></ul></div>
+        <div class="mk"><h4>Máscara</h4><ul><li><code>mask = (y != −1)</code>: las inciertas no cuentan en la pérdida (política base; "−1 como 0" y "−1 como 1" son la ablación).</li></ul></div>
+        <div class="dr"><h4>No entra a la red</h4><span class="c drop" data-col="idioma">idioma</span><span class="c drop" data-col="fab">fabricante</span><span class="c drop" data-col="contraste">contraste</span><span class="c drop" data-col="lado">lado</span><span class="c drop" data-col="fuente">fuente_etiquetas</span>
+          <ul><li>12 de los 15 cortes, en la ResNet-50.</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="down">↓</div>
+  <div class="stage">
+    <div class="rail"><span class="step">PASO 11</span><span class="count">≤ 50<small>épocas</small></span></div>
+    <div class="card">
+      <h3>Entrenamiento</h3>
+      <p class="what">El bucle del curso: zero_grad → forward → loss → backward → step. Se guardan los mejores pesos con <code>copy.deepcopy</code>.</p>
+      <div class="io">
+        <div class="in"><h4>Pérdida</h4><ul><li><code>BCEWithLogitsLoss(pos_weight = neg/pos, reduction="none")</code> × máscara.</li><li>12 sigmoides independientes (multietiqueta), no softmax.</li><li><code>pos_weight</code> compensa el desbalance (Fracture: 5.7 negativos por positivo).</li></ul></div>
+        <div class="in"><h4>Optimización</h4><ul><li>SGD, momentum 0.9; lr 0.001 en el ajuste fino.</li><li><code>ReduceLROnPlateau</code> (÷10, paciencia 3).</li><li>Early stopping (paciencia 10) según el <b>AUC macro de val</b>.</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="down">↓</div>
+  <div class="stage">
+    <div class="rail"><span class="step">PASOS 12–15</span><span class="count">0.779<small>AUC macro test gold</small></span></div>
+    <div class="card">
+      <h3>Salida: de 12 números a 12 decisiones</h3>
+      <p class="what">La red devuelve 12 logits → sigmoide → 12 probabilidades → cada una se compara con su umbral (el de máximo F1 en val, aplicado al test sin tocarlo) → 12 decisiones 0/1.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Modelo</th><th>Entrada</th><th>AUC val (débil)</th><th>AUC test gold [IC 95 %]</th></tr></thead>
+        <tbody>
+          <tr><td>VGG-11 BN desde cero</td><td>15 cortes</td><td>0.727</td><td>0.676 [0.604–0.748]</td></tr>
+          <tr><td>ResNet-50 extractor fijo</td><td>3 cortes RGB</td><td>0.660</td><td>0.690 [0.631–0.743]</td></tr>
+          <tr><td><b>ResNet-50 ajuste fino</b></td><td>3 cortes RGB</td><td>0.752</td><td><b>0.779 [0.732–0.827]</b></td></tr>
+        </tbody></table></div>
+      <div class="io">
+        <div class="mk"><h4>Lo que vuelve a aparecer</h4><span class="c" data-col="idioma">idioma</span><span class="c" data-col="fab">fabricante</span><span class="c" data-col="contraste">contraste</span>
+          <ul><li>Solo para el <b>análisis de sesgos</b>: AUC por idioma, por fabricante y por contraste.</li></ul></div>
+        <div class="mk"><h4>Análisis extra</h4><ul><li>Ablación: −1 como 0 / como 1, ResNet-18, extractor fijo. Solo el ajuste fino es significativo.</li><li>Grad-CAM sobre <code>layer4[-1]</code>: Contusion y Medial OA plausibles.</li><li>F1 macro en test: 0.60.</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="card"><h3>Lo que llega al final</h3><ul>
+      <li>De <b>4,407 × 14</b> columnas de texto y etiquetas, el modelo solo usa <b>3 cortes de 256×256</b> de una serie por estudio.</li>
+      <li>El target son las <b>12 etiquetas</b>: débiles (del texto) para aprender y gold para evaluar.</li></ul></div>
+    <div class="card"><h3>Lo que se pierde y por qué</h3><ul>
+      <li><b>El texto:</b> solo sirve para fabricar las etiquetas.</li>
+      <li><b>257 estudios alemanes:</b> sin Sagital FS (sesgo de protocolo).</li>
+      <li><b>94 series T2:</b> pierden el desempate frente a DP.</li>
+      <li><b>Los bordes de la rodilla:</b> fuera de ±28 mm.</li></ul></div>
+    <div class="card"><h3>Lo que nunca se mezcla</h3><ul>
+      <li>Los <b>56 gold</b> solo aparecen en la validación del extractor y en el test.</li>
+      <li>El split es por <b>estudio</b>, nunca por corte.</li>
+      <li>Los metadatos (idioma, fabricante) no son entrada de la red.</li></ul></div>
+  </div>
+
+  <footer>Proyecto académico del curso Redes Neuronales y Aprendizaje Profundo (UNI FIIS, 2026-II). Datos: competencia Kaggle RSNA Knee Abnormality Detection. No es una herramienta clínica.</footer>
+</div>
+
+<script>
+(function(){
+  var chips = document.querySelectorAll('.c[data-col]');
+  chips.forEach(function(ch){
+    ch.setAttribute('tabindex','0');
+    ch.setAttribute('role','button');
+    function toggle(){
+      var col = ch.getAttribute('data-col');
+      var already = ch.classList.contains('on');
+      chips.forEach(function(o){ o.classList.remove('on'); });
+      if(!already){ document.querySelectorAll('.c[data-col="'+col+'"]').forEach(function(o){ o.classList.add('on'); }); }
+    }
+    ch.addEventListener('click', toggle);
+    ch.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
+  });
+})();
+</script>

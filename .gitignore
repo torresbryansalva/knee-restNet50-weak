@@ -1,0 +1,23 @@
+# Datos de la competencia y derivados (no se redistribuyen)
+data/*
+!data/README.md
+
+# Pesos de los modelos (se suben a GitHub Releases)
+modelos/*.pt
+*.pth
+
+# Imágenes y tensores
+*.dcm
+*.npy
+
+# Python / Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
